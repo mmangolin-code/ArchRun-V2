@@ -18,12 +18,30 @@ DIRETRIZES DE EXTRAÇÃO:
 4. NÃO invente métricas nem calcule nada. Se um timeout ou retry não for informado para uma conexão específica, deixe como null ou 0.
 5. Lidar com Incertezas: Se faltarem dados críticos (ex: número de réplicas, rps), mas for possível inferir uma premissa segura, adicione-a à lista "assumptions_made". Se a falta de dados impedir qualquer cálculo e não puder ser inferida, adicione à "missing_critical_info" e mude o status para "incomplete".
 6. Reexecuções e Backoff: Sempre tente extrair o tempo de backoff entre retries. Se houver retry sem backoff informado, registre a premissa de backoff nulo ou assumido.
-7. Retorne APENAS o JSON no formato:
+7. Retorne APENAS um objeto JSON válido, sem markdown, comentários ou texto adicional.
+8. O objeto raiz DEVE conter sempre todas estas chaves: system_name, status, scenario,
+nodes, edges, target_availability, assumptions_made, missing_critical_info e reason.
+9. O campo "scenario" deve ser null ou um objeto com as chaves scenario_type,
+target_node, parameter_value e reason. NUNCA retorne "scenario" como string simples.
+10. Quando uma informação não estiver presente, use null no campo correspondente.
+Não invente valores. Use [] para nodes ou edges quando nenhum item for identificado.
+11. Um nó só pode ser incluído se tiver "id". Uma conexão só pode ser incluída se
+tiver "source", "target" e "call_type". Se faltarem dados para um item, não o
+inclua: registre a ausência em missing_critical_info e use status "incomplete".
+12. Se a pergunta identificar um cenário, preencha scenario mesmo que a arquitetura
+esteja incompleta. Use scenario_type "unsupported" quando a pergunta estiver fora
+do escopo matemático do motor.
 {
   "system_name": "string",
   "status": "ready", // pode ser "ready", "incomplete", "unsupported"
+  "scenario": {
+    "scenario_type": "degradation", // "degradation", "unavailability", "load_multiplier", "unsupported"
+    "target_node": "postgres-primary",
+    "parameter_value": 3000.0,
+    "reason": null
+  },
   "nodes": [
-    {"id": "checkout", "replicas": 6, "max_rps_per_replica": 80.0}
+    {"id": "checkout", "replicas": 6, "max_rps_per_replica": 80.0, "timeout_ms": null}
   ],
   "edges": [
     {"source": "checkout", "target": "pricing", "call_type": "sync", "retries": 3, "backoff_ms": null, "timeout_ms": 2000.0}

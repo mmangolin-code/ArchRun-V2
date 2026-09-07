@@ -16,7 +16,8 @@ def validate_architecture_semantics(arch: SystemArchitecture) -> list[str]:
             
     # 3. Checagem de Retries sem Backoff em chamadas síncronas
     for edge in arch.edges:
-        if edge.call_type == "sync" and edge.retries > 0:
-            issues.append(f"Amplificação de Carga: A chamada '{edge.source}' -> '{edge.target}' possui {edge.retries} retries que podem amplificar falhas.")
+        retries = edge.retries if edge.retries is not None else 0
+        if edge.call_type == "sync" and retries > 0:
+            issues.append(f"Amplificação de Carga: A chamada '{edge.source}' -> '{edge.target}' possui {retries} retries que podem amplificar falhas.")
 
     return issues

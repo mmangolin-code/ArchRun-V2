@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from app.llm_parser import parse_architecture_text
 from app.engine.validator import validate_architecture_semantics
 from app.engine.scenario import simulate_latency_degradation
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -32,6 +36,7 @@ def parse_only(text_input: str):
             "telemetry": metrics
         }
     except Exception as e:
+        logger.exception("Falha no endpoint /parse-only")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -53,21 +58,46 @@ def analyze(payload: AnalysisRequest):
                 "telemetry": telemetry
             }
 
-        # 3. Execução da Simulação Dinâmica baseada no nó alvo extraído da pergunta
-        target_node = arch.scenario.target_node if arch.scenario else None
-        latency_val = arch.scenario.parameter_value if arch.scenario else 3000.0
+        if arch.scenario is None:
+            return {
+                "status": "recusado",
+                "motivo": "Não foi possível identificar um cenário de simulação na pergunta.",
+                "formal_model": arch.model_dump(exclude={"semantic_issues"}),
+                "semantic_issues": arch.semantic_issues,
+                "telemetry": telemetry
+            }
 
-        simulation_results = simulate_latency_degradation(
-            arch, 
-            degraded_node_id=target_node or "desconhecido", 
-            degraded_latency_ms=latency_val
-        )
-        
+        scenario_type = arch.scenario.scenario_type
+
+        # 2. Roteamento de Cenários
+        if scenario_type == "degradation":
+            target_node = arch.scenario.target_node or "desconhecido"
+            latency_val = arch.scenario.parameter_value or 3000.0
+            
+            simulation_results = simulate_latency_degradation(
+                arch, 
+                degraded_node_id=target_node, 
+                degraded_latency_ms=latency_val
+            )
+            
+        elif scenario_type in ["unavailability", "load_multiplier"]:
+            # Recusa graciosa informando o limite do motor atual
+            return {
+                "status": "recusado",
+                "motivo": f"O cenário '{scenario_type}' foi compreendido, mas a simulação matemática para ele ainda não foi implementada neste ciclo.",
+                "telemetry": telemetry
+            }
+
+        # Extrai os problemas semânticos que agora vivem dentro do próprio modelo
+        semantic_issues = arch.semantic_issues
+
         return {
-            "formal_model": arch.model_dump(),
+            "formal_model": arch.model_dump(exclude={"semantic_issues"}), # Oculta do JSON principal se desejar
             "semantic_issues": semantic_issues,            
             "simulation_results": simulation_results,
             "telemetry": telemetry
         }
+    
     except Exception as e:
+        logger.exception("Falha no endpoint /analyze")
         raise HTTPException(status_code=500, detail=str(e))

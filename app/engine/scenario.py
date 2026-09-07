@@ -37,8 +37,9 @@ def simulate_latency_degradation(
                 )
                 
                 # Aplica amplificação de carga devido a retries
-                effective_rps = calculate_effective_rps(input_rps, edge.retries, target_failing=True)
-                amplification_factor = 1 + edge.retries
+                retries = edge.retries if edge.retries is not None else 0
+                effective_rps = calculate_effective_rps(input_rps, retries, target_failing=True)
+                amplification_factor = 1 + retries
                 
                 results["load_amplifications"].append(
                     f"As reexecuções do {edge.source} amplificam a carga no {edge.target} em {amplification_factor}x (Carga efetiva: {effective_rps} rps)"
