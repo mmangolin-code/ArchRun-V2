@@ -19,12 +19,13 @@ def _estimate_base_rps(arch: SystemArchitecture) -> float:
 
 
 def simulate_latency_degradation(
-    arch: SystemArchitecture, 
-    degraded_node_id: str, 
-    degraded_latency_ms: float
+    arch: SystemArchitecture,
+    degraded_node_id: str,
+    degraded_latency_ms: float,
+    input_rps: float | None = None
 ) -> dict:
-    
-    input_rps = _estimate_base_rps(arch) # <-- Removido o hardcode de 320.0
+
+    input_rps = input_rps if input_rps is not None else _estimate_base_rps(arch)
     
     results = {
         "scenario": f"Degradação de latência no componente '{degraded_node_id}' para {degraded_latency_ms}ms",
@@ -59,11 +60,10 @@ def simulate_latency_degradation(
                 results["blast_radius_impacted_nodes"].add(edge.target)
 
     for node in arch.nodes:
-        max_rps = node.max_rps_per_replica or 80.0
-        # Avalia a saturação usando o input_rps dinâmico
+        max_rps = node.max_rps_per_replica
         saturation = calculate_node_saturation(input_rps, node.replicas, max_rps)
         results["node_saturations"][node.id] = f"{saturation * 100}%"
-        
+
         if saturation >= 1.0:
             results["availability_impact"] = f"A disponibilidade cai abaixo da meta ({arch.target_availability * 100}%) devido à saturação de {node.id}"
 
@@ -75,11 +75,12 @@ def simulate_latency_degradation(
 
 
 def simulate_unavailability(
-    arch: SystemArchitecture, 
-    unavailable_node_id: str
+    arch: SystemArchitecture,
+    unavailable_node_id: str,
+    input_rps: float | None = None
 ) -> dict:
-    
-    input_rps = _estimate_base_rps(arch) # <-- Removido o hardcode
+
+    input_rps = input_rps if input_rps is not None else _estimate_base_rps(arch)
     
     results = {
         "scenario": f"Falha total e indisponibilidade do componente '{unavailable_node_id}'",
@@ -140,11 +141,11 @@ def simulate_load_multiplier(
     }
     
     for node in arch.nodes:
-        max_rps = node.max_rps_per_replica or 80.0
+        max_rps = node.max_rps_per_replica
         saturation = calculate_node_saturation(peak_load, node.replicas, max_rps)
-        
+
         results["node_saturations"][node.id] = f"{saturation * 100}%"
-        
+
         # Se a saturação passar de 1.0 (100%), o sistema cai
         if saturation >= 1.0:
             results["availability_impact"] = f"A disponibilidade cai abaixo da meta ({arch.target_availability * 100}%). Gargalo atingido em '{node.id}'."

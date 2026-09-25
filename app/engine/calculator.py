@@ -12,15 +12,16 @@ def calculate_effective_rps(base_rps: float, retries: int | None, target_failing
 def calculate_node_saturation(effective_rps: float, replicas: int | None, max_rps_per_replica: float | None) -> float:
     """Calcula saturação assumindo valores default seguros caso o LLM retorne null."""
     safe_replicas = replicas if replicas is not None else 1
-    safe_max_rps = max_rps_per_replica if max_rps_per_replica is not None else 80.0
-    
-    """if safe_max_rps <= 0:
-        return 0.0 """
-    # AJUSTE: Proteção contra ZeroDivisionError se safe_replicas for 0
+
+    if max_rps_per_replica is None:
+        return 0.0
+
+    safe_max_rps = max_rps_per_replica
+
     if safe_max_rps <= 0 or safe_replicas <= 0:
         # Se efetivamente está recebendo carga mas não tem capacidade, é saturação infinita
-        return float('inf') if effective_rps > 0 else 0.0    
-    
+        return float('inf') if effective_rps > 0 else 0.0
+
     capacity = safe_replicas * safe_max_rps
     return round(effective_rps / capacity, 2)
 
